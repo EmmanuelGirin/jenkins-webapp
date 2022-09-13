@@ -29,13 +29,6 @@ pipeline {
                }
             }
         }
-        stage('Scan') {
-            steps {
-                script {
-                    sh 'trivy --no-progress --exit-code 1 --severity MEDIUM,HIGH,CRITICAL ${ID_DOCKER}/${IMAGE_NAME}:${IMAGE_TAG}'
-                }
-            }
-        }
         stage('Test image') {
            agent any
            steps {
