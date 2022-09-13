@@ -23,7 +23,7 @@ pipeline {
                  sh '''
                   echo "Cleaning Environment"
                   docker rm -f $IMAGE_NAME || echo "container does not exist"                 
-                  docker run -d --name ${IMAGE_NAME} ${ID_DOCKER}/${IMAGE_NAME}:${IMAGE_TAG}
+                  docker run -d -p 8000:80 --name ${IMAGE_NAME} ${ID_DOCKER}/${IMAGE_NAME}:${IMAGE_TAG}
                   sleep 5
                  '''
                }
@@ -35,7 +35,7 @@ pipeline {
               script {
                 sh '''
                   echo "Testing Image..."
-                  curl http://192.168.72.145
+                  curl http://192.168.72.146:8000
                 '''
               }
            }
