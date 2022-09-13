@@ -23,7 +23,7 @@ pipeline {
                  sh '''
                   echo "Cleaning Environment"
                   docker rm -f $IMAGE_NAME || echo "container does not exist"                 
-                  docker run -d -e --name ${IMAGE_NAME} ${ID_DOCKER}/${IMAGE_NAME}:${IMAGE_TAG}
+                  docker run -d --name ${IMAGE_NAME} ${ID_DOCKER}/${IMAGE_NAME}:${IMAGE_TAG}
                   sleep 5
                  '''
                }
