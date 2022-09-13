@@ -31,7 +31,9 @@ pipeline {
         }
         stage('Scan') {
             steps {
-                sh 'trivy --no-progress --exit-code 1 --severity MEDIUM,HIGH,CRITICAL darinpope/java-web-app:latest'
+                script {
+                    sh 'trivy --no-progress --exit-code 1 --severity MEDIUM,HIGH,CRITICAL darinpope/java-web-app:latest'
+                }
             }
         }
         stage('Test image') {
