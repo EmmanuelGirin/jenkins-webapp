@@ -1,21 +1,21 @@
 pipeline {
-     environment {
-       ID_DOCKER = "${ID_DOCKER_PARAMS}"
-       IMAGE_NAME = "jenkins-webapp"
-       IMAGE_TAG = "latest"
-       STAGING = "${ID_DOCKER}-staging"
-       PRODUCTION = "${ID_DOCKER}-production"
-     }
-     agent none
-     stages {
-         stage('Build image') {
-             agent any
-             steps {
-                script {
-                  sh 'docker build -t ${ID_DOCKER}/${IMAGE_NAME}:${IMAGE_TAG} .'
-                }
-             }
-        }
+    environment {
+        ID_DOCKER = "${ID_DOCKER_PARAMS}"
+        IMAGE_NAME = "jenkins-webapp"
+        IMAGE_TAG = "latest"
+        STAGING = "${ID_DOCKER}-staging"
+        PRODUCTION = "${ID_DOCKER}-production"
+    }
+    agent none
+    stages {
+        stage('Build image') {
+            agent any
+            steps {
+            script {
+                sh 'docker build -t ${ID_DOCKER}/${IMAGE_NAME}:${IMAGE_TAG} .'
+            }
+            }
+    }
         stage('Run container based on builded image') {
             agent any
             steps {
@@ -28,19 +28,42 @@ pipeline {
                  '''
                }
             }
-       }
-       stage('Test image') {
+        }
+        stage('Test image') {
            agent any
            steps {
               script {
                 sh '''
                   echo "Testing Image..."
-                  curl http://192.168.72.146
+                  curl http://192.168.72.146 | grep -q "Dimension" 
                 '''
               }
            }
-      }
-      stage('Clean Container') {
+        }
+        stage('Scan') {
+            steps {
+                // Install trivy
+                sh 'curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.18.3'
+                sh 'curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl > html.tpl'
+
+                // Scan all vuln levels
+                sh 'mkdir -p reports'
+                sh 'trivy filesystem --ignore-unfixed --vuln-type os,library --format template --template "@html.tpl" -o reports/nodjs-scan.html ./nodejs'
+                publishHTML target : [
+                    allowMissing: true,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: 'reports',
+                    reportFiles: 'nodjs-scan.html',
+                    reportName: 'Trivy Scan',
+                    reportTitles: 'Trivy Scan'
+                ]
+
+                // Scan again and fail on CRITICAL vulns
+                sh 'trivy filesystem --ignore-unfixed --vuln-type os,library --exit-code 1 --severity CRITICAL ./nodejs'
+            }
+        }
+        stage('Clean Container') {
           agent any
           steps {
              script {
@@ -51,63 +74,63 @@ pipeline {
                '''
              }
           }
-     }
+        }
 
-     stage ('Login and Push Image on docker hub') {
-          agent any
-          environment {
-            DOCKERHUB_PASSWORD  = credentials('dockerhub')
-          }
-          steps {
-             script {
-               sh '''
-                echo $DOCKERHUB_PASSWORD_PSW | docker login -u $ID_DOCKER --password-stdin
-                docker push ${ID_DOCKER}/${IMAGE_NAME}:${IMAGE_TAG}                
-               '''
-             }
-          }
-      }    
+        stage ('Login and Push Image on docker hub') {
+            agent any
+            environment {
+                DOCKERHUB_PASSWORD  = credentials('dockerhub')
+            }
+            steps {
+                script {
+                sh '''
+                    echo $DOCKERHUB_PASSWORD_PSW | docker login -u $ID_DOCKER --password-stdin
+                    docker push ${ID_DOCKER}/${IMAGE_NAME}:${IMAGE_TAG}                
+                '''
+                }
+            }
+        }    
      
-     stage('Push image in staging and deploy it') {
-       when {
-              expression { GIT_BRANCH == 'origin/main' }
+        stage('Push image in staging and deploy it') {
+        when {
+                expression { GIT_BRANCH == 'origin/main' }
+                }
+        agent any
+        environment {
+            HEROKU_API_KEY = credentials('heroku_api_key')
+        }  
+        steps {
+            script {
+                sh '''
+                heroku container:login
+                heroku create $STAGING || echo "project already exist"
+                heroku container:push -a $STAGING web
+                heroku container:release -a $STAGING web
+                '''
             }
-      agent any
-      environment {
-          HEROKU_API_KEY = credentials('heroku_api_key')
-      }  
-      steps {
-          script {
-            sh '''
-              heroku container:login
-              heroku create $STAGING || echo "project already exist"
-              heroku container:push -a $STAGING web
-              heroku container:release -a $STAGING web
-            '''
-          }
-        }
-     }
-
-
-
-     stage('Push image in production and deploy it') {
-       when {
-              expression { GIT_BRANCH == 'origin/main' }
             }
-      agent any
-      environment {
-          HEROKU_API_KEY = credentials('heroku_api_key')
-      }  
-      steps {
-          script {
-            sh '''
-              heroku container:login
-              heroku create $PRODUCTION || echo "project already exist"
-              heroku container:push -a $PRODUCTION web
-              heroku container:release -a $PRODUCTION web
-            '''
-          }
         }
-     }
-  }
+
+
+
+        stage('Push image in production and deploy it') {
+        when {
+                expression { GIT_BRANCH == 'origin/main' }
+                }
+        agent any
+        environment {
+            HEROKU_API_KEY = credentials('heroku_api_key')
+        }  
+        steps {
+            script {
+                sh '''
+                heroku container:login
+                heroku create $PRODUCTION || echo "project already exist"
+                heroku container:push -a $PRODUCTION web
+                heroku container:release -a $PRODUCTION web
+                '''
+            }
+            }
+        }
+    }
 }
