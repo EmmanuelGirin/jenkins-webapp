@@ -35,7 +35,7 @@ pipeline {
               script {
                 sh '''
                   echo "Testing Image..."
-                  curl http://192.168.72.145"
+                  curl http://192.168.72.145
                 '''
               }
            }
