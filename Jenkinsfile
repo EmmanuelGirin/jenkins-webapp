@@ -33,7 +33,7 @@ pipeline {
             agent any
             steps {
                 script {
-                    sh 'trivy image --no-progress --exit-code 1 --severity CRITICAL ${ID_DOCKER}/${IMAGE_NAME}:${IMAGE_TAG}'
+                    sh 'trivy image --no-progress --exit-code 0 --severity CRITICAL ${ID_DOCKER}/${IMAGE_NAME}:${IMAGE_TAG}'
                 }
             }
         }
